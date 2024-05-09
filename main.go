@@ -7,6 +7,7 @@ import (
 	"log"
 	"strings"
 	"time"
+  "math"
 
 	"github.com/signintech/gopdf"
 	"github.com/spf13/cobra"
@@ -30,7 +31,7 @@ type Invoice struct {
 	Due  string `json:"due" yaml:"due"`
 
 	Items      []string  `json:"items" yaml:"items"`
-	Quantities []int     `json:"quantities" yaml:"quantities"`
+	Quantities []float64     `json:"quantities" yaml:"quantities"`
 	Rates      []float64 `json:"rates" yaml:"rates"`
 
 	Tax      float64 `json:"tax" yaml:"tax"`
@@ -45,7 +46,7 @@ func DefaultInvoice() Invoice {
 		Id:         time.Now().Format("20060102"),
 		Title:      "INVOICE",
 		Rates:      []float64{25},
-		Quantities: []int{2},
+		Quantities: []float64{0},
 		Items:      []string{"Paper Cranes"},
 		From:       "Project Folded, Inc.",
 		To:         "Untitled Corporation, Inc.",
@@ -62,6 +63,7 @@ var (
 	output         string
 	file           = Invoice{}
 	defaultInvoice = DefaultInvoice()
+  isQuantityHours = false;
 )
 
 func init() {
@@ -72,7 +74,7 @@ func init() {
 	generateCmd.Flags().StringVar(&file.Title, "title", "INVOICE", "Title")
 
 	generateCmd.Flags().Float64SliceVarP(&file.Rates, "rate", "r", defaultInvoice.Rates, "Rates")
-	generateCmd.Flags().IntSliceVarP(&file.Quantities, "quantity", "q", defaultInvoice.Quantities, "Quantities")
+	generateCmd.Flags().Float64SliceVarP(&file.Quantities, "quantity", "q", defaultInvoice.Quantities, "Quantities")
 	generateCmd.Flags().StringSliceVarP(&file.Items, "item", "i", defaultInvoice.Items, "Items")
 
 	generateCmd.Flags().StringVarP(&file.Logo, "logo", "l", defaultInvoice.Logo, "Company logo")
@@ -87,6 +89,8 @@ func init() {
 
 	generateCmd.Flags().StringVarP(&file.Note, "note", "n", "", "Note")
 	generateCmd.Flags().StringVarP(&output, "output", "o", "invoice.pdf", "Output file (.pdf)")
+
+  generateCmd.Flags().BoolVar(&isQuantityHours, "hours",  false, "Quantity is in hours")
 
 	flag.Parse()
 }
@@ -131,25 +135,35 @@ var generateCmd = &cobra.Command{
 		writeBillTo(&pdf, file.To)
 		writeHeaderRow(&pdf)
 		subtotal := 0.0
+    totalQuantity := 0.0
 		for i := range file.Items {
-			q := 1
+			q := 1.0
 			if len(file.Quantities) > i {
 				q = file.Quantities[i]
+        q = math.Ceil(q*100) / 100
 			}
 
 			r := 0.0
 			if len(file.Rates) > i {
 				r = file.Rates[i]
+        r = math.Ceil(r*100) / 100
 			}
 
 			writeRow(&pdf, file.Items[i], q, r)
 			subtotal += float64(q) * r
+      totalQuantity += q
 		}
+
 		if file.Note != "" {
 			writeNotes(&pdf, file.Note)
 		}
-		writeTotals(&pdf, subtotal, subtotal*file.Tax, subtotal*file.Discount)
-		if file.Due != "" {
+
+    if isQuantityHours {
+      writeTotalsWithTotalHours(&pdf, totalQuantity, subtotal, subtotal*file.Tax, subtotal*file.Discount)
+    } else {
+		  writeTotals(&pdf, subtotal, subtotal*file.Tax, subtotal*file.Discount)
+    }
+    if file.Due != "" {
 			writeDueDate(&pdf, file.Due)
 		}
 		writeFooter(&pdf, file.Id)

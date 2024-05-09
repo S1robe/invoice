@@ -17,10 +17,11 @@ const (
 )
 
 const (
-	subtotalLabel = "Subtotal"
-	discountLabel = "Discount"
-	taxLabel      = "Tax"
-	totalLabel    = "Total"
+	subtotalLabel   = "Subtotal"
+	discountLabel   = "Discount"
+	taxLabel        = "Tax"
+	totalLabel      = "Total"
+	totalHoursLabel = "Total Hours"
 )
 
 func writeLogo(pdf *gopdf.GoPdf, logo string, from string) {
@@ -149,16 +150,17 @@ func writeFooter(pdf *gopdf.GoPdf, id string) {
 	pdf.Br(48)
 }
 
-func writeRow(pdf *gopdf.GoPdf, item string, quantity int, rate float64) {
+func writeRow(pdf *gopdf.GoPdf, item string, quantity float64, rate float64) {
 	_ = pdf.SetFont("Inter", "", 11)
 	pdf.SetTextColor(0, 0, 0)
 
+	// Round to 2 dcimal places
 	total := float64(quantity) * rate
 	amount := strconv.FormatFloat(total, 'f', 2, 64)
 
 	_ = pdf.Cell(nil, item)
 	pdf.SetX(quantityColumnOffset)
-	_ = pdf.Cell(nil, strconv.Itoa(quantity))
+	_ = pdf.Cell(nil, strconv.FormatFloat(quantity, 'f', 2, 64))
 	pdf.SetX(rateColumnOffset)
 	_ = pdf.Cell(nil, currencySymbols[file.Currency]+strconv.FormatFloat(rate, 'f', 2, 64))
 	pdf.SetX(amountColumnOffset)
@@ -166,20 +168,34 @@ func writeRow(pdf *gopdf.GoPdf, item string, quantity int, rate float64) {
 	pdf.Br(24)
 }
 
+func writeTotalsWithTotalHours(pdf *gopdf.GoPdf, totalHours float64, subtotal float64, tax float64, discount float64) {
+	pdf.SetY(600)
+
+	writeTotal(pdf, totalHoursLabel, totalHours, false)
+	writeTotal(pdf, subtotalLabel, subtotal, true)
+	if tax > 0 {
+		writeTotal(pdf, taxLabel, tax, true)
+	}
+	if discount > 0 {
+		writeTotal(pdf, discountLabel, discount, true)
+	}
+	writeTotal(pdf, totalLabel, subtotal+tax-discount, true)
+}
+
 func writeTotals(pdf *gopdf.GoPdf, subtotal float64, tax float64, discount float64) {
 	pdf.SetY(600)
 
-	writeTotal(pdf, subtotalLabel, subtotal)
+	writeTotal(pdf, subtotalLabel, subtotal, true)
 	if tax > 0 {
-		writeTotal(pdf, taxLabel, tax)
+		writeTotal(pdf, taxLabel, tax, true)
 	}
 	if discount > 0 {
-		writeTotal(pdf, discountLabel, discount)
+		writeTotal(pdf, discountLabel, discount, true)
 	}
-	writeTotal(pdf, totalLabel, subtotal+tax-discount)
+	writeTotal(pdf, totalLabel, subtotal+tax-discount, true)
 }
 
-func writeTotal(pdf *gopdf.GoPdf, label string, total float64) {
+func writeTotal(pdf *gopdf.GoPdf, label string, total float64, isMoney bool) {
 	_ = pdf.SetFont("Inter", "", 9)
 	pdf.SetTextColor(75, 75, 75)
 	pdf.SetX(rateColumnOffset)
@@ -190,8 +206,12 @@ func writeTotal(pdf *gopdf.GoPdf, label string, total float64) {
 	if label == totalLabel {
 		_ = pdf.SetFont("Inter-Bold", "", 11.5)
 	}
-	_ = pdf.Cell(nil, currencySymbols[file.Currency]+strconv.FormatFloat(total, 'f', 2, 64))
-	pdf.Br(24)
+  if isMoney {
+	  _ = pdf.Cell(nil, currencySymbols[file.Currency]+strconv.FormatFloat(total, 'f', 2, 64))
+  } else {
+    _ = pdf.Cell(nil, strconv.FormatFloat(total, 'f', 2, 64))
+  }
+  pdf.Br(24)
 }
 
 func getImageDimension(imagePath string) (int, int) {
