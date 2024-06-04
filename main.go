@@ -64,6 +64,9 @@ var (
 	file           = Invoice{}
 	defaultInvoice = DefaultInvoice()
   isQuantityHours = false;
+  // Max size of any page
+  maxHeight      float64
+  remainingSpace float64
 )
 
 func init() {
@@ -97,8 +100,8 @@ func init() {
 
 var rootCmd = &cobra.Command{
 	Use:   "invoice",
-	Short: "Invoice generates invoices from the command line.",
-	Long:  `Invoice generates invoices from the command line.`,
+	Short: "Invoice generates invoices from the command line. ",
+	Long:  `Invoice generates invoices from the command line. `,
 }
 
 var generateCmd = &cobra.Command{
@@ -118,7 +121,13 @@ var generateCmd = &cobra.Command{
 		pdf.Start(gopdf.Config{
 			PageSize: *gopdf.PageSizeA4,
 		})
+
+    maxHeight = gopdf.PageSizeA4.H + 5*35 // This is a little smaller than page height for A4, keeps footers clean
+    remainingSpace = maxHeight
+
 		pdf.SetMargins(40, 40, 40, 40)
+    remainingSpace -= 40
+
 		pdf.AddPage()
 		err := pdf.AddTTFFontData("Inter", interFont)
 		if err != nil {

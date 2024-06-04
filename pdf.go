@@ -24,18 +24,32 @@ const (
 	totalHoursLabel = "Total Hours"
 )
 
+func handleRemainingSpace(pdf *gopdf.GoPdf, consumed float64) {
+  if(remainingSpace - consumed < 0){
+    writeFooter(pdf, file.Id)
+    pdf.AddPage()
+    remainingSpace = maxHeight
+  }
+  remainingSpace -= consumed
+}
+
 func writeLogo(pdf *gopdf.GoPdf, logo string, from string) {
-	if logo != "" {
+  if logo != "" {
 		width, height := getImageDimension(logo)
 		scaledWidth := 100.0
 		scaledHeight := float64(height) * scaledWidth / float64(width)
-		_ = pdf.Image(logo, pdf.GetX(), pdf.GetY(), &gopdf.Rect{W: scaledWidth, H: scaledHeight})
-		pdf.Br(scaledHeight + 24)
+    
+    handleRemainingSpace(pdf, float64(scaledHeight))
+    _ = pdf.Image(logo, pdf.GetX(), pdf.GetY(), &gopdf.Rect{W: scaledWidth, H: scaledHeight})
+	  handleRemainingSpace(pdf, scaledHeight + 24)
+    pdf.Br(scaledHeight + 24)
 	}
 	pdf.SetTextColor(55, 55, 55)
 
 	formattedFrom := strings.ReplaceAll(from, `\n`, "\n")
 	fromLines := strings.Split(formattedFrom, "\n")
+  // # of lines * font size - 1 cause first is 12, minus the line breaks at the end
+  handleRemainingSpace(pdf, float64(len(fromLines) * 25 - 25 + 30 + 21))
 
 	for i := 0; i < len(fromLines); i++ {
 		if i == 0 {
@@ -49,13 +63,17 @@ func writeLogo(pdf *gopdf.GoPdf, logo string, from string) {
 		}
 	}
 	pdf.Br(21)
+
+  handleRemainingSpace(pdf, 36)
+
 	pdf.SetStrokeColor(225, 225, 225)
 	pdf.Line(pdf.GetX(), pdf.GetY(), 260, pdf.GetY())
 	pdf.Br(36)
 }
 
 func writeTitle(pdf *gopdf.GoPdf, title, id, date string) {
-	_ = pdf.SetFont("Inter-Bold", "", 24)
+	handleRemainingSpace(pdf, 24 + 36 + 12 + 48)
+  _ = pdf.SetFont("Inter-Bold", "", 24)
 	pdf.SetTextColor(0, 0, 0)
 	_ = pdf.Cell(nil, title)
 	pdf.Br(36)
@@ -71,6 +89,7 @@ func writeTitle(pdf *gopdf.GoPdf, title, id, date string) {
 }
 
 func writeDueDate(pdf *gopdf.GoPdf, due string) {
+  handleRemainingSpace(pdf, 9 + 11 + 12)
 	_ = pdf.SetFont("Inter", "", 9)
 	pdf.SetTextColor(75, 75, 75)
 	pdf.SetX(rateColumnOffset)
@@ -83,14 +102,18 @@ func writeDueDate(pdf *gopdf.GoPdf, due string) {
 }
 
 func writeBillTo(pdf *gopdf.GoPdf, to string) {
-	pdf.SetTextColor(75, 75, 75)
+  formattedTo := strings.ReplaceAll(to, `\n`, "\n")
+  toLines := strings.Split(formattedTo, "\n")
+  
+  handleRemainingSpace(pdf, float64( 9 + 18 + (len(toLines) * 25 - 25 + 35 + 64)))
+
+
+  pdf.SetTextColor(75, 75, 75)
 	_ = pdf.SetFont("Inter", "", 9)
 	_ = pdf.Cell(nil, "BILL TO")
 	pdf.Br(18)
 	pdf.SetTextColor(75, 75, 75)
 
-	formattedTo := strings.ReplaceAll(to, `\n`, "\n")
-	toLines := strings.Split(formattedTo, "\n")
 
 	for i := 0; i < len(toLines); i++ {
 		if i == 0 {
@@ -106,7 +129,10 @@ func writeBillTo(pdf *gopdf.GoPdf, to string) {
 	pdf.Br(64)
 }
 
+//Itemization section
 func writeHeaderRow(pdf *gopdf.GoPdf) {
+  handleRemainingSpace(pdf, 9 + 24)
+
 	_ = pdf.SetFont("Inter", "", 9)
 	pdf.SetTextColor(55, 55, 55)
 	_ = pdf.Cell(nil, "ITEM")
@@ -120,8 +146,14 @@ func writeHeaderRow(pdf *gopdf.GoPdf) {
 }
 
 func writeNotes(pdf *gopdf.GoPdf, notes string) {
-	pdf.SetY(600)
+	handleRemainingSpace(pdf, (maxHeight - 600))
+  pdf.SetY(600)
+  formattedNotes := strings.ReplaceAll(notes, `\n`, "\n")
+  notesLines := strings.Split(formattedNotes, "\n")
 
+  // May not need this...
+  //handleRemainingSpace(pdf, float64(9 + 18 + len(notesLines) * (9+15) + 48))
+  
 	_ = pdf.SetFont("Inter", "", 9)
 	pdf.SetTextColor(55, 55, 55)
 	_ = pdf.Cell(nil, "NOTES")
@@ -129,8 +161,6 @@ func writeNotes(pdf *gopdf.GoPdf, notes string) {
 	_ = pdf.SetFont("Inter", "", 9)
 	pdf.SetTextColor(0, 0, 0)
 
-	formattedNotes := strings.ReplaceAll(notes, `\n`, "\n")
-	notesLines := strings.Split(formattedNotes, "\n")
 
 	for i := 0; i < len(notesLines); i++ {
 		_ = pdf.Cell(nil, notesLines[i])
@@ -139,8 +169,10 @@ func writeNotes(pdf *gopdf.GoPdf, notes string) {
 
 	pdf.Br(48)
 }
+
 func writeFooter(pdf *gopdf.GoPdf, id string) {
-	pdf.SetY(800)
+  // Nothing is ever written below 800 per the handleRemainingSpace function
+  pdf.SetY(800)
 
 	_ = pdf.SetFont("Inter", "", 10)
 	pdf.SetTextColor(55, 55, 55)
@@ -151,6 +183,7 @@ func writeFooter(pdf *gopdf.GoPdf, id string) {
 }
 
 func writeRow(pdf *gopdf.GoPdf, item string, quantity float64, rate float64) {
+  handleRemainingSpace(pdf, 11+24)
 	_ = pdf.SetFont("Inter", "", 11)
 	pdf.SetTextColor(0, 0, 0)
 
@@ -169,6 +202,7 @@ func writeRow(pdf *gopdf.GoPdf, item string, quantity float64, rate float64) {
 }
 
 func writeTotalsWithTotalHours(pdf *gopdf.GoPdf, totalHours float64, subtotal float64, tax float64, discount float64) {
+	handleRemainingSpace(pdf, (maxHeight - 600))
 	pdf.SetY(600)
 
 	writeTotal(pdf, totalHoursLabel, totalHours, false)
@@ -183,6 +217,7 @@ func writeTotalsWithTotalHours(pdf *gopdf.GoPdf, totalHours float64, subtotal fl
 }
 
 func writeTotals(pdf *gopdf.GoPdf, subtotal float64, tax float64, discount float64) {
+	handleRemainingSpace(pdf, (maxHeight - 600))
 	pdf.SetY(600)
 
 	writeTotal(pdf, subtotalLabel, subtotal, true)
